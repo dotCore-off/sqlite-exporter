@@ -108,33 +108,64 @@ function SQE.ExportMySQL(data)
     createQuery:start()
 
     local columnNames, columnTypes, availableTypes = {}, {}, { "int", "string", "boolean", "varchar" }
-    for _, cms in ipairs(SQE.Config.Columns) do
-        local name = string.Explode(" ", cms)
-        columnNames[_] = name[1]
-        for k, tpe in ipairs(availableTypes) do
-            local startPos = string.find(cms, tpe)
+    local function FetchColumnDetails(index, column)
+        // Fetch column name
+        local name = string.Explode(" ", column)
+        columnNames[index] = name[1]
+
+        // Fetch type per column and assign it
+        for k, cType in ipairs(availableTypes) do
+            local startPos = string.find(column, cType)
             if (startPos == nil) then continue end
-            columnTypes[_] = tpe
+            columnTypes[index] = cType
         end
     end
 
+    for _, cms in ipairs(SQE.Config.Columns) do
+        FetchColumnDetails(_, cms)
+    end
+
+    /*
+        Formats a [k] = v table to an inline (v1, v2, v3) row that we can later use in an INSERT query as VALUES
+        dataAsValues{} will contain all data formatted as bracket groups separated by a comma
+    */
     local dataAsValues = {}
-    for k, v in pairs(data) do
-        local entry, tbl, pos = { "(", ")," }, { }, 1
-        for index, value in pairs(v) do
+    local function FormatEndRow(row)
+        // Initialize stuff we use
+        // @pos represents the current column
+        local tbl, pos = {}, 1
+
+        // Loop through the non-numerical SQLite data and formats it as a numerical table
+        for k, v in pairs(row) do
             if (SQE.Functions[columnTypes[pos]]) then
-                value = SQE.Functions[columnTypes[pos]].convertFunc(value)
+                v = SQE.Functions[columnTypes[pos]].convertFunc(v)
             end
             pos = pos + 1
-            if (type(value) != "string") then
-                table.insert(tbl, value)
+            if (type(v) != "string") then
+                table.insert(tbl, v)
                 continue
             end
-            value = "\'" .. value .. "\'"
-            table.insert(tbl, value)
+            v = "\'" .. v .. "\'"
+            table.insert(tbl, v)
         end
-        table.insert(entry, 2, table.concat(tbl, ", "))
+
+        // Return created numerical table as a string - v1, v2, v3, etc..
+        return table.concat(tbl, ", ")
+    end
+
+    for k, v in pairs(data) do
+        // Needed to create bracket groups and insert multiple values
+        local entry = { "(", ")," }
+        local formattedRow = FormatEndRow(v)
+
+        // Insert the values between (  ),
+        table.insert(entry, 2, formattedRow)
+
+        // This is needed so that we remove the , from last bracket group
+        // If you don't do this, query will error as it expects another group of values to be added
         if (next(data, k) == nil) then entry[#entry] = ")" end
+
+        // Insert into table containint all bracket groups
         table.insert(dataAsValues, table.concat(entry, " "))
     end
 
