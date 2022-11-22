@@ -1,8 +1,8 @@
-# 📟 SQLite Importer 
-An automatic and easy to use SQLite data importer to remote database for Garry's Mod.
+# 📟 SQLite Exporter 
+An automatic and easy to use SQLite data exporter to remote database for Garry's Mod.
 
 # 📃 How to use
-1. [Download latest available release](https://github.com/dotCore-off/sqlite-importer/releases)
+1. [Download latest available release](https://github.com/dotCore-off/sqlite-exporter/releases)
 2. **Unzip** and **open** file with a text / code editor
 3. **Edit configuration** to match your needs
 4. **Drag and drop the file** wherever you want as long as it is executed **serverside**
