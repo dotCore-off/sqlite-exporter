@@ -61,6 +61,7 @@ SQE.Config.Condition = ""
     MAIN LOGIC
 */
 
+// Function - Fetch data contained in SQLite targetted table
 function SQE.FetchSQLite()
     if (!isstring(SQE.Config.Table) or #SQE.Config.Table <= 0) then
         print("[SQLite Exporter] Please, indicate a valid table to target!")
@@ -81,18 +82,25 @@ function SQE.FetchSQLite()
     end
 end
 
+// Function - Insert fetched data from SQLite database to remote database
 function SQE.ExportMySQL(data)
+    // Localize stuff cuz that doesn't hurt
     local table, string = table, string
 
+    // Shouldn't happen but who knows
     if (!data or #data <= 0) then
         print("[SQLite Exporter] No data passed to the function, stopping.")
         return
     end
 
+    // Shouldn't happen but who knows
     if (SQE.Database == nil) then
         SQE.InitializeConnection()
     end
 
+    /*
+        Create table in remote database if it doesn't exist yet
+    */
     local createQuery = SQE.Database:query([[ CREATE TABLE IF NOT EXISTS ]] .. SQE.Config.Table .. [[ ( ]]
     .. table.concat(SQE.Config.Columns, ", ") ..
     [[ ) ]])
@@ -107,6 +115,9 @@ function SQE.ExportMySQL(data)
     end
     createQuery:start()
 
+    /*
+        This will allows us to determine function to use based on each column expected value type
+    */
     local columnNames, columnTypes, availableTypes = {}, {}, { "int", "string", "boolean", "varchar" }
     local function FetchColumnDetails(index, column)
         // Fetch column name
@@ -169,6 +180,9 @@ function SQE.ExportMySQL(data)
         table.insert(dataAsValues, table.concat(entry, " "))
     end
 
+    /*
+        FINAL STEP: Insert our formatted data into remote database, and print the status
+    */
     local insertQuery = SQE.Database:query("INSERT INTO " .. SQE.Config.Table .. "(" .. table.concat(columnNames, ", ") .. ") VALUES " .. table.concat(dataAsValues, "") .. ";")
 
     function insertQuery:onSuccess()
@@ -182,6 +196,7 @@ function SQE.ExportMySQL(data)
     insertQuery:start()
 end
 
+// Function - Starts connection to remote SQL database if Mysqloo module exists
 function SQE.InitializeConnection()
     if (!mysqloo) then
         return print("[SQLite Exporter] ERROR: make sure that mysqloo module is properly installed.")
@@ -199,10 +214,10 @@ function SQE.InitializeConnection()
         print("[SQL Exporter] Cannot connect to database:\n" .. err)
         return
     end
-
     SQE.Database:connect()
 end
 
+// Launch the whole export process once all entities have been loaded
 hook.Add("InitPostEntity", "SQE.LaunchExport", function()
     if (!SQE.Connected) then
         SQE.InitializeConnection()
