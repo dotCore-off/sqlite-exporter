@@ -1,8 +1,8 @@
 // DO NOT TOUCH OR FILE WILL BREAK
-SQI = SQI or {}
-SQI.Config = SQI.Config or {}
-SQI.Connected = false
-SQI.Functions = {
+SQE = SQE or {}
+SQE.Config = SQE.Config or {}
+SQE.Connected = false
+SQE.Functions = {
     ["string"] = {
         convertFunC = function(arg)
             return !isstring(arg) and tostring(arg) or arg
@@ -28,11 +28,11 @@ require("mysqloo")
 // DO NOT TOUCH OR FILE WILL BREAK
 
 /*
-    SQLite Importer - Config
+    SQLite Exporter - Config
 */
 
 // MySQL database credentials goes here
-SQI.Config.SqlInfos = {
+SQE.Config.SqlInfos = {
     ["hostname"] = "",
     ["username"] = "",
     ["password"] = "",
@@ -41,19 +41,19 @@ SQI.Config.SqlInfos = {
 }
 
 // Table to target - string
-SQI.Config.Table = ""
+SQE.Config.Table = ""
 
 // Columns to use when creating table - table of string
-SQI.Config.Columns = {
+SQE.Config.Columns = {
     // Example: "amount int",
     // Example: "steamID64 varchar(20) NOT NULL",
 }
 
 // Specific condition to use when fetching data from SQLite - false or string
-SQI.Config.Condition = ""
+SQE.Config.Condition = ""
 
 /*
-    SQLiter Importer - End of config
+    SQLiter Exporter - End of config
 */
 
 
@@ -61,54 +61,54 @@ SQI.Config.Condition = ""
     MAIN LOGIC
 */
 
-function SQI.FetchSQLite()
-    if (!isstring(SQI.Config.Table) or #SQI.Config.Table <= 0) then
-        print("[SQLite Importer] Please, indicate a valid table to target!")
+function SQE.FetchSQLite()
+    if (!isstring(SQE.Config.Table) or #SQE.Config.Table <= 0) then
+        print("[SQLite Exporter] Please, indicate a valid table to target!")
         return
     end
 
-    if (!SQI.Config.Condition) then
-        print("[SQLite Importer] No condition were given, proceeding.")
+    if (!SQE.Config.Condition) then
+        print("[SQLite Exporter] No condition were given, proceeding.")
     end
 
-    local fetchQuery = sql.Query("SELECT * FROM " .. SQI.Config.Table .. " " .. (SQI.Config.Condition or "") .. ";")
+    local fetchQuery = sql.Query("SELECT * FROM " .. SQE.Config.Table .. " " .. (SQE.Config.Condition or "") .. ";")
     if (!fetchQuery) then
-        print("[SQLite Importer] ERROR", sql.LastError())
+        print("[SQLite Exporter] ERROR", sql.LastError())
         return
     else
-        print("[SQLite Importer] Fetched " .. SQI.Config.Table .. " table correctly, " .. #fetchQuery .. " rows received, processing..")
-        SQI.ImportMySQL(fetchQuery)
+        print("[SQLite Exporter] Fetched " .. SQE.Config.Table .. " table correctly, " .. #fetchQuery .. " rows received, processing..")
+        SQE.ExportMySQL(fetchQuery)
     end
 end
 
-function SQI.ImportMySQL(data)
+function SQE.ExportMySQL(data)
     local table, string = table, string
 
     if (!data or #data <= 0) then
-        print("[SQLite Importer] No data passed to the function, stopping.")
+        print("[SQLite Exporter] No data passed to the function, stopping.")
         return
     end
 
-    if (SQI.Database == nil) then
-        SQI.InitializeConnection()
+    if (SQE.Database == nil) then
+        SQE.InitializeConnection()
     end
 
-    local createQuery = SQI.Database:query([[ CREATE TABLE IF NOT EXISTS ]] .. SQI.Config.Table .. [[ ( ]]
-    .. table.concat(SQI.Config.Columns, ", ") ..
+    local createQuery = SQE.Database:query([[ CREATE TABLE IF NOT EXISTS ]] .. SQE.Config.Table .. [[ ( ]]
+    .. table.concat(SQE.Config.Columns, ", ") ..
     [[ ) ]])
 
     function createQuery:onError(q, err)
-        print("[SQLite Importer] " .. err)
+        print("[SQLite Exporter] " .. err)
         return
     end
 
     function createQuery:onSuccess()
-        print("[SQLite Importer] Successfully created " .. SQI.Config.Table .. " table!")
+        print("[SQLite Exporter] Successfully created " .. SQE.Config.Table .. " table!")
     end
     createQuery:start()
 
     local columnNames, columnTypes, availableTypes = {}, {}, { "int", "string", "boolean", "varchar" }
-    for _, cms in ipairs(SQI.Config.Columns) do
+    for _, cms in ipairs(SQE.Config.Columns) do
         local name = string.Explode(" ", cms)
         columnNames[_] = name[1]
         for k, tpe in ipairs(availableTypes) do
@@ -122,8 +122,8 @@ function SQI.ImportMySQL(data)
     for k, v in pairs(data) do
         local entry, tbl, pos = { "(", ")," }, { }, 1
         for index, value in pairs(v) do
-            if (SQI.Functions[columnTypes[pos]]) then
-                value = SQI.Functions[columnTypes[pos]].convertFunc(value)
+            if (SQE.Functions[columnTypes[pos]]) then
+                value = SQE.Functions[columnTypes[pos]].convertFunc(value)
             end
             pos = pos + 1
             if (type(value) != "string") then
@@ -138,42 +138,42 @@ function SQI.ImportMySQL(data)
         table.insert(dataAsValues, table.concat(entry, " "))
     end
 
-    local insertQuery = SQI.Database:query("INSERT INTO " .. SQI.Config.Table .. "(" .. table.concat(columnNames, ", ") .. ") VALUES " .. table.concat(dataAsValues, "") .. ";")
+    local insertQuery = SQE.Database:query("INSERT INTO " .. SQE.Config.Table .. "(" .. table.concat(columnNames, ", ") .. ") VALUES " .. table.concat(dataAsValues, "") .. ";")
 
     function insertQuery:onSuccess()
-        print("[SQLite Importer] Import is done, you can remove the file now!")
+        print("[SQLite Exporter] Export is done, you can remove the file now!")
     end
 
     function insertQuery:onError(q, err)
-        print("[SQLite Importer] " .. err)
+        print("[SQLite Exporter] " .. err)
         return
     end
     insertQuery:start()
 end
 
-function SQI.InitializeConnection()
+function SQE.InitializeConnection()
     if (!mysqloo) then
-        return print("[SQLite Importer] ERROR: make sure that mysqloo module is properly installed.")
+        return print("[SQLite Exporter] ERROR: make sure that mysqloo module is properly installed.")
     end
 
-    SQI.Database = mysqloo.connect(SQI.Config.SqlInfos["hostname"], SQI.Config.SqlInfos["username"], SQI.Config.SqlInfos["password"], SQI.Config.SqlInfos["database"], { ["port"] = SQI.Config.SqlInfos["port"] })
+    SQE.Database = mysqloo.connect(SQE.Config.SqlInfos["hostname"], SQE.Config.SqlInfos["username"], SQE.Config.SqlInfos["password"], SQE.Config.SqlInfos["database"], { ["port"] = SQE.Config.SqlInfos["port"] })
 
-    function SQI.Database:onConnected()
-        print("[SQLite Importer] Connected to MySQL database!")
-        SQI.Connected = true
-        SQI.FetchSQLite()
+    function SQE.Database:onConnected()
+        print("[SQLite Exporter] Connected to MySQL database!")
+        SQE.Connected = true
+        SQE.FetchSQLite()
     end
 
-    function SQI.Database:onConnectionFailed(err)
-        print("[SQL Importer] Cannot connect to database:\n" .. err)
+    function SQE.Database:onConnectionFailed(err)
+        print("[SQL Exporter] Cannot connect to database:\n" .. err)
         return
     end
 
-    SQI.Database:connect()
+    SQE.Database:connect()
 end
 
-hook.Add("InitPostEntity", "SQI.LaunchImport", function()
-    if (!SQI.Connected) then
-        SQI.InitializeConnection()
+hook.Add("InitPostEntity", "SQE.LaunchExport", function()
+    if (!SQE.Connected) then
+        SQE.InitializeConnection()
     end
 end)
